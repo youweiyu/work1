@@ -1,13 +1,14 @@
-import numpy as np
+import ot
+import sys
 import numba
+import torch
+import numpy as np
 import scanpy as sc
 from munkres import Munkres
 from collections import Counter
-import torch
-import sys
-import ot
-@numba.njit("f4(f4[:], f4[:])")
+from collections import defaultdict
 
+@numba.njit("f4(f4[:], f4[:])")
 def euclid_dist(t1,t2):
     sum=0
     for i in range(t1.shape[0]):
@@ -38,6 +39,8 @@ def _nan2zero(x):
 
 def _nan2inf(x):
     return torch.where(torch.isnan(x), torch.zeros_like(x) + np.inf, x)
+
+
 class NB(object):
     def __init__(self, theta=None, scale_factor=1.0):
         super(NB, self).__init__()
@@ -56,7 +59,6 @@ class NB(object):
         if mean:
             final = torch.mean(final)
         return final
-
 
 class ZINB(NB):
     def __init__(self, pi, ridge_lambda=0.0, **kwargs):
@@ -93,42 +95,6 @@ def compute_joint(view1, view2):
 
     return p_i_j
 
-def consistency_loss(emb1, emb2):
-    emb1 = emb1 - torch.mean(emb1, dim=0, keepdim=True)
-    emb2 = emb2 - torch.mean(emb2, dim=0, keepdim=True)
-    emb1 = torch.nn.functional.normalize(emb1, p=2, dim=1)
-    emb2 = torch.nn.functional.normalize(emb2, p=2, dim=1)
-    cov1 = torch.matmul(emb1, emb1.t())
-    cov2 = torch.matmul(emb2, emb2.t())
-    return torch.mean((cov1 - cov2) ** 2)
-
-def crossview_contrastive_Loss(view1, view2, lamb=9.0, EPS=sys.float_info.epsilon):
-    """Contrastive loss for maximizng the consistency"""
-    _, k = view1.size()
-    p_i_j = compute_joint(view1, view2)
-    assert (p_i_j.size() == (k, k))
-
-    p_i = p_i_j.sum(dim=1).view(k, 1).expand(k, k)
-    p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)
-
-    #     Works with pytorch <= 1.2
-    #     p_i_j[(p_i_j < EPS).data] = EPS
-    #     p_j[(p_j < EPS).data] = EPS
-    #     p_i[(p_i < EPS).data] = EPS
-
-    # Works with pytorch > 1.2
-    p_i_j = torch.where(p_i_j < EPS, torch.tensor([EPS], device=p_i_j.device), p_i_j)
-    p_j = torch.where(p_j < EPS, torch.tensor([EPS], device=p_j.device), p_j)
-    p_i = torch.where(p_i < EPS, torch.tensor([EPS], device=p_i.device), p_i)
-
-    loss = - p_i_j * (torch.log(p_i_j) \
-                      - (lamb + 1) * torch.log(p_j) \
-                      - (lamb + 1) * torch.log(p_i))
-
-    loss = loss.sum()
-
-    return loss*-1
-
 def cosine_similarity(emb):
     mat = torch.matmul(emb, emb.T)
     norm = torch.norm(emb, p=2, dim=1).reshape((emb.shape[0], 1))
@@ -163,11 +129,8 @@ def refine_label(adata, radius=50, key='cluster'):
         new_type.append(max_type)
 
     new_type = [str(i) for i in list(new_type)]
-    # adata.obs['label_refined'] = np.array(new_type)
 
     return new_type
-
-
 
 def munkres_newlabel(y_true, y_pred):
     """\
@@ -231,8 +194,6 @@ def munkres_newlabel(y_true, y_pred):
     print('Counter(y_true)\n', Counter(y_true))
 
     return new_predict
-
-from collections import defaultdict
 
 def seperate(Z, y_pred, n_clusters):
     n, d = Z.shape[0], Z.shape[1]

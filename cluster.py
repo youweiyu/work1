@@ -1,20 +1,18 @@
 import torch
 import torch.nn as nn
-from torch.nn.parameter import Parameter
 import torch.nn.functional as F
-
-d = 400
+from torch.nn.parameter import Parameter
 
 class multiclusterloss(nn.Module):
-    def __init__(self,input_dim, num_clusters,d=d,eta=2,alpha=1e-3,beta=1.0,gamma=1):
+    def __init__(self,input_dim, num_clusters, dim_sub,eta=2,alpha=1e-3,beta=1.0,gamma=1):
         super().__init__()
         self.input_dim = input_dim
         self.num_clusters = num_clusters
-        self.d = d         # dimension of each subspace
-        self.eta = eta     # parameter for subspace affinity
-        self.alpha = alpha # weight for constraint loss
-        self.beta = beta   # weight for kl loss
-        self.gamma = gamma # weight for contrastive loss
+        self.d = dim_sub        # dimension of each subspace
+        self.eta = eta          # parameter for subspace affinity
+        self.alpha = alpha      # weight for constraint loss
+        self.beta = beta        # weight for kl loss
+        self.gamma = gamma      # weight for contrastive loss
 
         cluster_dims = self.d * num_clusters
         self.cluster_emb = Cluster(input_dim, cluster_dims)
@@ -80,11 +78,7 @@ class multiclusterloss(nn.Module):
         return loss.to('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def target_distribution(q):
-    weight = q ** 2 / q.sum(0)
-    return (weight.t() / weight.sum(1)).t()
-
-# to get cluster embeddings
+# get cluster embeddings
 class Cluster(nn.Module):
     def __init__(self, input_dim, cluster_dim):
         super().__init__()
@@ -95,8 +89,6 @@ class Cluster(nn.Module):
             nn.LeakyReLU(),
         )
         self.linear_shortcut = nn.Linear(input_dim, cluster_dim)
-        # self.ff = FF(input_dim) full connection layer
-
 
         self.init_emb()
 
@@ -110,19 +102,6 @@ class Cluster(nn.Module):
                 torch.nn.init.xavier_uniform_(m.weight.data)
                 if m.bias is not None:
                     m.bias.data.fill_(0.0)
-
-EPS = 1e-15
-def loss_balance_entropy(prob, *kwargs):
-    prob = prob.clamp(EPS)
-    entropy = prob * prob.log()
-
-    # return negative entropy to maximize it
-    if entropy.ndim == 1:
-        return entropy.sum()
-    elif entropy.ndim == 2:
-        return entropy.sum(dim=1).mean()
-    else:
-        raise ValueError(f'Probability is {entropy.ndim}-d')
 
 
 class D_constraint1(torch.nn.Module):
@@ -151,22 +130,20 @@ class D_constraint2(torch.nn.Module):
         loss_d2_constraint = torch.norm(torch.mm(d,d.t()) * S)
         return loss_d2_constraint
 
-class FF(nn.Module):
-    def __init__(self, input_dim):
-        super().__init__()
 
-        self.block = nn.Sequential(
-            nn.Linear(input_dim, input_dim),
-            nn.ReLU(),
-            nn.Linear(input_dim, input_dim),
+def target_distribution(q):
+    weight = q ** 2 / q.sum(0)
+    return (weight.t() / weight.sum(1)).t()
 
-            nn.ReLU(),
-            nn.Linear(input_dim, input_dim),
+EPS = 1e-15
+def loss_balance_entropy(prob, *kwargs):
+    prob = prob.clamp(EPS)
+    entropy = prob * prob.log()
 
-            nn.ReLU()
-        )
-        self.linear_shortcut = nn.Linear(input_dim, input_dim)
-
-
-    def forward(self, x):
-        return self.block(x) + self.linear_shortcut(x)
+    # return negative entropy to maximize it
+    if entropy.ndim == 1:
+        return entropy.sum()
+    elif entropy.ndim == 2:
+        return entropy.sum(dim=1).mean()
+    else:
+        raise ValueError(f'Probability is {entropy.ndim}-d')

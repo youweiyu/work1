@@ -42,9 +42,10 @@ class dynamic_weighting(nn.Module):
         w_gene = gene_confidence+gene_holo
         w_img = img_confidence+img_holo
         w = torch.softmax(torch.cat((w_gene, w_img), dim=0), dim=0)
+
         w_gene = w[0]
         w_img = w[1]
-
+        
         gene_feat = gene_feat * w_gene
         img_feat = img_feat * w_img
 

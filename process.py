@@ -3,10 +3,10 @@ import torch
 import random
 import numpy as np
 import scanpy as sc
-from torch.backends import cudnn
 import pandas as pd
 import anndata as ad
 import scipy.sparse as sp
+from torch.backends import cudnn
 from scipy.spatial import distance_matrix
 
 def set_seed(seed=0):
@@ -39,27 +39,6 @@ def prefilter_genes(adata,min_counts=None,max_counts=None,min_cells=10,max_cells
     id_tmp=np.logical_and(id_tmp,sc.pp.filter_genes(adata.X,max_counts=max_counts)[0]) if max_counts is not None  else id_tmp
     adata._inplace_subset_var(id_tmp)
 
-
-def refine_nearest_labels(adata, radius=50, key='label'):
-    new_type = []
-    df = adata.obsm['spatial']
-    old_type = adata.obs[key].values
-    df = pd.DataFrame(df,index=old_type)
-    distances = distance_matrix(df, df)
-    distances_df = pd.DataFrame(distances, index=old_type, columns=old_type)
-
-    for index, row in distances_df.iterrows():
-        # row[index] = np.inf
-        nearest_indices = row.nsmallest(radius).index.tolist()
-        # for i in range(1):
-        #     nearest_indices.append(index)
-        max_type = max(nearest_indices, key=nearest_indices.count)
-        new_type.append(max_type)
-        # most_common_element, most_common_count = find_most_common_elements(nearest_indices)
-        # nearest_labels.append(df.loc[nearest_indices, 'label'].values)
-
-    return [str(i) for i in list(new_type)]
-
 def normalize(mx):
     """Row-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))
@@ -71,8 +50,8 @@ def normalize(mx):
 
 def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     """Convert a scipy sparse matrix to a torch sparse tensor."""
-    sparse_mx = sparse_mx.tocoo().astype(np.float32)  #其思想是 按照(row_index, column_index, value)的方式存储每一个非0元素，所以存储的数据结构就应该是一个以三元组为元素的列表List[Tuple[int, int, int]]
-    indices = torch.from_numpy(np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64)) #from_numpy()用来将数组array转换为张量Tensor vstack（）：按行在下边拼接
+    sparse_mx = sparse_mx.tocoo().astype(np.float32)
+    indices = torch.from_numpy(np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64))
     values = torch.from_numpy(sparse_mx.data)
     shape = torch.Size(sparse_mx.shape)
     return torch.sparse.FloatTensor(indices, values, shape)
