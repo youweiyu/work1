@@ -4,8 +4,8 @@ import datetime
 import warnings
 from utils import *
 from process import *
-import torch.optim as optim
 from sklearn import metrics
+import torch.optim as optim
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 
@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='stMMR', random_seed=110,res=1,
           l=2,weight_decay=0.0001,a=10,b=1,c=10,embed=True,radius=0,enhancement=False,cluster="kmeans",
                 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),
-                dim_sub = 0, heads = 0):
+                dim_sub = 0, heads = 0, contrasive = False):
     set_seed(random_seed)
 
     if 'highly_variable' in adata.var.columns:
@@ -43,7 +43,7 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
                     num_img=features_I.shape[0],
                     dim_sub=dim_sub,
                     heads=heads,
-                    contrasive = False
+                    contrasive = contrasive
                     ).to(device)
     
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -105,9 +105,11 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
                 mean_max = mean.to('cpu').detach().numpy()
                 emb_max = z_xi.to('cpu').detach().numpy()
                 # print(epoch,ari_res)
+            
     
     if 'ground_truth' in adata.obs.columns:
         print("Ari=", ari_max)
+        print('Nmi=', metrics.normalized_mutual_info_score(obs_df['ground_truth'], idx_max))
     else:
         if cluster == "kmeans":
             kmeans = KMeans(n_clusters=knn,random_state=random_seed).fit(np.nan_to_num(z_xi.cpu().detach()))

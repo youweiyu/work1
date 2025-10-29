@@ -1,20 +1,20 @@
+import sys
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.parameter import Parameter
-from torch.nn.modules.module import Module
-from sklearn.cluster import KMeans
-import torch.optim as optim
-from random import shuffle
-import pandas as pd
 import numpy as np
 import scanpy as sc
-from layers import MGCN,decoder
-import sys
+import pandas as pd
+import torch.nn as nn
+from random import shuffle
+import torch.optim as optim
+import torch.nn.functional as F
+from sklearn.cluster import KMeans
+from torch.nn.parameter import Parameter
+from torch.nn.modules.module import Module
 
-from dynamic import dynamic_weighting
 from fusion import AlignFusion
+from layers import MGCN,decoder
 from cluster import multiclusterloss
+from dynamic import dynamic_weighting
 
 class stMMR(nn.Module):
     def __init__(self,nfeatX,nfeatI,hidden_dims,k_clusters,num_gene,num_img, dim_sub, heads, contrasive):
