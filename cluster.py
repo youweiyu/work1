@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
 class multiclusterloss(nn.Module):
-    def __init__(self,input_dim, num_clusters, dim_sub,eta=2,alpha=1e-3,beta=1.0,gamma=1):
+    def __init__(self,input_dim, num_clusters, dim_sub, contrasive, eta=2,alpha=1e-3,beta=1.0,gamma=1):
         super().__init__()
         self.input_dim = input_dim
         self.num_clusters = num_clusters
@@ -12,6 +12,8 @@ class multiclusterloss(nn.Module):
         self.eta = eta          # parameter for subspace affinity
         self.alpha = alpha      # weight for constraint loss
         self.beta = beta        # weight for kl loss
+
+        self.contrasive = contrasive
         self.gamma = gamma      # weight for contrastive loss
 
         cluster_dims = self.d * num_clusters
@@ -52,8 +54,7 @@ class multiclusterloss(nn.Module):
         s : torch.Tensor = None
 
         #euclidean distance
-        q = 1.0 / (1.0 + torch.sum(
-        torch.pow(z.unsqueeze(1) - self.cluster_layers, 2), 2) / self.alpha)
+        q = 1.0 / (1.0 + torch.sum(torch.pow(z.unsqueeze(1) - self.cluster_layers, 2), 2) / self.alpha)
         q = q.pow((self.alpha + 1.0) / 2.0)
         q = (q.t() / torch.sum(q, 1)).t()
 
@@ -70,7 +71,11 @@ class multiclusterloss(nn.Module):
         p_eu = target_distribution(q)
         p_sub = target_distribution(s)
 
-        loss1 = self.loss_cal() # contrastive loss + D constraints
+        if self.contrasive:
+            loss1 = self.loss_cal(q,s) # contrastive loss + D constraints
+        else:
+            loss1 = self.loss_cal()
+
         loss2 = F.kl_div(q.log(), p_eu, reduction='sum') + F.kl_div(s.log(), p_sub, reduction='sum') # kl loss
 
         loss = loss1 + self.beta * loss2

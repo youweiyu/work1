@@ -105,7 +105,7 @@ def cosine_similarity(emb):
     return mat
 
 def regularization_loss(emb, adj):
-    mat = torch.sigmoid(cosine_similarity(emb))  # .cpu()
+    mat = torch.sigmoid(cosine_similarity(emb))
     loss = torch.mean((mat - adj) ** 2)
     return loss
 

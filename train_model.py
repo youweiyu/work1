@@ -42,7 +42,8 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
                     num_gene=features_X.shape[0],
                     num_img=features_I.shape[0],
                     dim_sub=dim_sub,
-                    heads=heads
+                    heads=heads,
+                    contrasive = False
                     ).to(device)
     
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
