@@ -51,6 +51,7 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
 
     mean_max = []
     ari_max = 0
+    nmi_max = 0
 
     #模型训练
     for epoch in range(n_epochs):
@@ -76,6 +77,7 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
 
         reg_loss = regularization_loss(z_xi, adj)
         total_loss = a * zinb_loss + b * loss_cluster + c * reg_loss
+
         total_loss.backward()
         optimizer.step()
         
@@ -104,12 +106,13 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
                 idx_max = idx
                 mean_max = mean.to('cpu').detach().numpy()
                 emb_max = z_xi.to('cpu').detach().numpy()
+                nmi_max = metrics.normalized_mutual_info_score(obs_df['temp'], obs_df['ground_truth'])
                 # print(epoch,ari_res)
             
     
     if 'ground_truth' in adata.obs.columns:
         print("Ari=", ari_max)
-        print('Nmi=', metrics.normalized_mutual_info_score(obs_df['ground_truth'], idx_max))
+        print("Nmi=",nmi_max)
     else:
         if cluster == "kmeans":
             kmeans = KMeans(n_clusters=knn,random_state=random_seed).fit(np.nan_to_num(z_xi.cpu().detach()))

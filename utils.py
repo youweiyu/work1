@@ -55,7 +55,9 @@ class NB(object):
         t2 = (theta + y_true) * torch.log(1.0 + (y_pred / (theta + self.eps))) + (
                 y_true * (torch.log(theta + self.eps) - torch.log(y_pred + self.eps)))
         final = t1 + t2
-        final = _nan2inf(final)
+        # final = _nan2inf(final)
+        final = torch.nan_to_num(final, nan=0.0, posinf=1e8, neginf=-1e8)
+
         if mean:
             final = torch.mean(final)
         return final
@@ -77,6 +79,8 @@ class ZINB(NB):
         result = torch.where(torch.lt(y_true, 1e-8), zero_case, nb_case)
         ridge = self.ridge_lambda * torch.square(self.pi)
         result += ridge
+        result = torch.nan_to_num(result, nan=0.0, posinf=1e8, neginf=-1e8)
+
         if mean:
             result = torch.mean(result)
         result = _nan2inf(result)

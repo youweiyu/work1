@@ -46,6 +46,8 @@ class multiclusterloss(nn.Module):
         loss_d2 = d_cons2(self.D, self.d, self.num_clusters)
         loss = self.gamma*loss + self.alpha*(loss_d1 + loss_d2)
 
+        loss = torch.nan_to_num(loss, nan=0.0, posinf=1e8, neginf=-1e8)
+
         return loss
 
     def forward(self, x):
@@ -79,6 +81,8 @@ class multiclusterloss(nn.Module):
         loss2 = F.kl_div(q.log(), p_eu, reduction='sum') + F.kl_div(s.log(), p_sub, reduction='sum') # kl loss
 
         loss = loss1 + self.beta * loss2
+
+        loss = torch.nan_to_num(loss, nan=0.0, posinf=1e8, neginf=-1e8)
 
         return loss.to('cuda' if torch.cuda.is_available() else 'cpu')
 
