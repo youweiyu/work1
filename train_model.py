@@ -11,10 +11,14 @@ from sklearn.decomposition import PCA
 
 warnings.filterwarnings('ignore')
 
-def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='stMMR', random_seed=110,res=1,
-          l=2,weight_decay=0.0001,a=10,b=1,c=10,embed=True,radius=0,enhancement=False,cluster="kmeans",
-                device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),
-                dim_sub = 0, heads = 0, contrasive = False):
+def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001,
+          key_added='stMMR', random_seed=110,res=1,
+          l=2,weight_decay=0.0001,a=10,b=1e-3,c=10,eta=2,beta1=1.0,beta2=1.0,tao=1e-3,
+          embed=True,radius=0,enhancement=False,cluster="kmeans",
+          device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),
+          dim_sub = 0, heads = 0,
+          contrasive = False, gamma=1,
+          ):
     set_seed(random_seed)
 
     if 'highly_variable' in adata.var.columns:
@@ -43,7 +47,8 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
                     num_img=features_I.shape[0],
                     dim_sub=dim_sub,
                     heads=heads,
-                    contrasive = contrasive
+                    contrasive = contrasive,
+                    eta=eta, beta1=beta1, beta2=beta2, b=b, gamma=gamma,tao=tao,
                     ).to(device)
     
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -76,7 +81,7 @@ def train(adata,knn=10,h=[3000,3000,2800], n_epochs=200,lr=0.0001, key_added='st
         zinb_loss = ZINB(pi, theta=disp, ridge_lambda=1).loss(features_X, mean, mean=True)
 
         reg_loss = regularization_loss(z_xi, adj)
-        total_loss = a * zinb_loss + b * loss_cluster + c * reg_loss
+        total_loss = a * zinb_loss + loss_cluster + c * reg_loss
 
         total_loss.backward()
         optimizer.step()

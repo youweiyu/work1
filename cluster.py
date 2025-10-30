@@ -4,14 +4,17 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
 class multiclusterloss(nn.Module):
-    def __init__(self,input_dim, num_clusters, dim_sub, contrasive, eta=2,alpha=1e-3,beta=1.0,gamma=1):
+    def __init__(self,input_dim, num_clusters, dim_sub, contrasive, eta=2,  beta1=1.0, beta2=1.0,b=1e-3, gamma=1, tao=1e-3):
         super().__init__()
         self.input_dim = input_dim
         self.num_clusters = num_clusters
         self.d = dim_sub        # dimension of each subspace
         self.eta = eta          # parameter for subspace affinity
-        self.alpha = alpha      # weight for constraint loss
-        self.beta = beta        # weight for kl loss
+        self.beta1 = beta1      # weight for kl loss
+        self.beta2 = beta2
+        self.b = b              #weight for constraint
+
+        self.tao = tao
 
         self.contrasive = contrasive
         self.gamma = gamma      # weight for contrastive loss
@@ -44,7 +47,7 @@ class multiclusterloss(nn.Module):
         d_cons2 = D_constraint2(self.device)
         loss_d1 = d_cons1(self.D)
         loss_d2 = d_cons2(self.D, self.d, self.num_clusters)
-        loss = self.gamma*loss + self.alpha*(loss_d1 + loss_d2)
+        loss = self.gamma*loss + self.b*(loss_d1 + loss_d2)
 
         loss = torch.nan_to_num(loss, nan=0.0, posinf=1e8, neginf=-1e8)
 
@@ -56,8 +59,8 @@ class multiclusterloss(nn.Module):
         s : torch.Tensor = None
 
         #euclidean distance
-        q = 1.0 / (1.0 + torch.sum(torch.pow(z.unsqueeze(1) - self.cluster_layers, 2), 2) / self.alpha)
-        q = q.pow((self.alpha + 1.0) / 2.0)
+        q = 1.0 / (1.0 + torch.sum(torch.pow(z.unsqueeze(1) - self.cluster_layers, 2), 2) / self.tao)
+        q = q.pow((self.tao + 1.0) / 2.0)
         q = (q.t() / torch.sum(q, 1)).t()
 
         # Calculate subspace affinity
@@ -78,9 +81,9 @@ class multiclusterloss(nn.Module):
         else:
             loss1 = self.loss_cal()
 
-        loss2 = F.kl_div(q.log(), p_eu, reduction='sum') + F.kl_div(s.log(), p_sub, reduction='sum') # kl loss
+        loss2 = self.beta1*F.kl_div(q.log(), p_eu, reduction='sum') + self.beta2*F.kl_div(s.log(), p_sub, reduction='sum') # kl loss
 
-        loss = loss1 + self.beta * loss2
+        loss = loss1 + loss2
 
         loss = torch.nan_to_num(loss, nan=0.0, posinf=1e8, neginf=-1e8)
 

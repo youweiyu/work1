@@ -17,13 +17,14 @@ from cluster import multiclusterloss
 from dynamic import dynamic_weighting
 
 class stMMR(nn.Module):
-    def __init__(self,nfeatX,nfeatI,hidden_dims,k_clusters,num_gene,num_img, dim_sub, heads, contrasive):
+    def __init__(self,nfeatX,nfeatI,hidden_dims,k_clusters,num_gene,num_img, dim_sub, heads, contrasive, eta, beta1, beta2, b, gamma, tao):
         super(stMMR, self).__init__()
         self.mgcn = MGCN(nfeatX,nfeatI,hidden_dims)
         
         self.dynamic_weight = dynamic_weighting(hidden_dims[1],hidden_dims[1],num_gene,num_img)
         self.align_fusion = AlignFusion(embedding_dim=hidden_dims[1], num_heads=heads, mlp_dim=hidden_dims[1]//2, lowemb=hidden_dims[2])
-        self.cluster_loss = multiclusterloss(input_dim=hidden_dims[2], num_clusters=k_clusters, dim_sub=dim_sub, contrasive = contrasive)
+        self.cluster_loss = multiclusterloss(input_dim=hidden_dims[2], num_clusters=k_clusters, dim_sub=dim_sub,
+                                             contrasive = contrasive, eta=eta, beta1=beta1, beta2=beta2, b=b, gamma=gamma, tao=tao)
         
         self.ZINB = decoder(hidden_dims[2],nfeatX)
 
